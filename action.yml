@@ -1,0 +1,24 @@
+name: Jina Hub Updater
+description: Workflow to automatically trigger test / update of your Jina modules on new Jina releases.
+author: Jina AI
+
+inputs:
+  GITHUB_TOKEN:
+    description: 'Your token with access to the Hub repo'
+    required: true
+  TAG_IN_ISSUES:
+    description: 'The team / user to tag in issues'
+    required: true
+  MODULES_REPO:
+    description: 'The repo name (e.g. `jina-ai/jina-hub`)'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.GITHUB_TOKEN }}
+    - ${{ inputs.TAG_IN_ISSUES }}
+    - ${{ inputs.MODULES_REPO }}
+branding:
+  icon: 'package'
+  color: 'green'
