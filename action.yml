@@ -1,0 +1,32 @@
+name: Jina Hub Updater
+description: Workflow to automatically trigger test / update of your Jina modules on new Jina releases.
+author: Jina AI
+
+inputs:
+  GITHUB_TOKEN:
+    description: 'Your token with access to the Hub repo'
+    required: true
+  TAG_IN_ISSUES:
+    description: 'The team / user to tag in issues'
+    required: true
+  MODULES_REPO:
+    description: 'The repo name (e.g. `jina-ai/jina-hub`)'
+    required: true
+runs:
+  using: "composite"
+  steps: 
+    - run: $GITHUB_ACTION_PATH/setup.sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}  
+        TAG_IN_ISSUES: ${{ inputs.TAG_IN_ISSUES }}
+        MODULES_REPO: ${{ inputs.MODULES_REPO }}
+      shell: bash
+    - env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        TAG_IN_ISSUES: ${{ inputs.TAG_IN_ISSUES }}
+        MODULES_REPO: ${{ inputs.MODULES_REPO }}
+      run: -u $GITHUB_ACTION_PATH/hub_updater.py
+      shell: python
+branding:
+  icon: 'package'
+  color: 'green'
