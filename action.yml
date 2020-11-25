@@ -20,5 +20,5 @@ runs:
     - ${{ inputs.TAG_IN_ISSUES }}
     - ${{ inputs.MODULES_REPO }}
 branding:
-  icon: 'package'
-  color: 'green'
+  icon: 'clock'
+  color: 'red'
