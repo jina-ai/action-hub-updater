@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 600
     steps:
       - name: Jina Hub Updater
-        uses: jina-ai/hub-updater-action@master
+        uses: jina-ai/action-hub-updater@master
         with:
           GITHUB_TOKEN: ${{ secrets.YOUR_SECRETS }}
           TAG_IN_ISSUES: 'your_username'
@@ -40,7 +40,7 @@ jobs:
 
 This will periodically (at midnight) check whether there is a new Jina release that you haven't tested your modules against yet. It will open draft PRs in the repo, that will trigger the Hub Builder Action (see below). The PRs will trigger the build, test, deployment. If the process fails, an issue will be opened in the repo and the user will be tagged. If all is OK, nothing to do: your new image will be pushed to your Dockerhub, using the naming convention `folder.subfolder.modulename:{module version}-{jina version}`. Ex. `pod.crafter.dummyhubexecutor:0.1.0-0.8.1`.
 
-- Install the [Jina Hub Builder GH Action](https://github.com/jina-ai/hub-builder) on the same repo.
+- Install the [Jina Hub Builder GH Action](https://github.com/jina-ai/action-hub-builder) on the same repo.
 
 Configure it, by adding the following under `.github/workflows/ci.yml`:
 
@@ -56,7 +56,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Jina Hub Image Builder
-        uses: jina-ai/hub-builder@master
+        uses: jina-ai/action-hub-builder@master
         with:
           push: true
           dockerhub_username: ${{ secrets.dockerhub_username }}
