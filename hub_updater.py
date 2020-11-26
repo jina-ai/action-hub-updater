@@ -87,6 +87,7 @@ def create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_rep
         if pr.state == 'open':
             # something must've stopped us from closing it
             # make sure we close it
+            print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
             return pr
         else:
             return None
@@ -221,32 +222,36 @@ def handle_prs(prs_modules: List[Tuple[PullRequest, str]], hub_repo, jina_core_v
         new_prs = []
         while len(prs_modules) > 0:
             for i, pr_module in enumerate(prs_modules):
-                pr = pr_module[0]
-                module = pr_module[1]
-                print(f'Checking PR {pr} ( {pr.html_url} )...')
-                br_name = pr.head.ref
-                last_commit = sorted(list(pr.get_commits()), key=lambda t: t.commit.author.date)[-1]
-                sha = last_commit.sha
-                pr_checks: Optional[List[Dict]] = get_checks_for_pr(sha)
-                checks_passed = all_checks_passed(pr_checks)
-                if checks_passed is None:
-                    print(f'Not all checks have completed for {br_name}. Skipping and will attempt later...')
-                    new_prs.append((pr, module))
-                else:
-                    if checks_passed:
-                        print(f'All checks completed and passed for {br_name}. Commenting and closing...')
-                        pr.create_issue_comment(
-                            f'Automatic build successful. Image has been built and deployed.'
-                        )
+                pr = None
+                try:
+                    pr = pr_module[0]
+                    module = pr_module[1]
+                    print(f'Checking PR {pr} ( {pr.html_url} )...')
+                    br_name = pr.head.ref
+                    last_commit = sorted(list(pr.get_commits()), key=lambda t: t.commit.author.date)[-1]
+                    sha = last_commit.sha
+                    pr_checks: Optional[List[Dict]] = get_checks_for_pr(sha)
+                    checks_passed = all_checks_passed(pr_checks)
+                    if checks_passed is None:
+                        print(f'Not all checks have completed for {br_name}. Skipping and will attempt later...')
+                        new_prs.append((pr, module))
                     else:
-                        print(f'warning: not all checks have passed for {br_name}. Will open issue and abandon trying.')
-                        issue = open_issue(pr, pr_checks, hub_repo, module, jina_core_version)
-                        pr.create_issue_comment(
-                            f'Automatic build failed in this PR and we have opened an issue here: {issue.html_url}. '
-                            f'Closing this PR. '
-                        )
-                    pr.edit(state='closed')
-                    delete_remote_branch(br_name, expect_exists=True)
+                        if checks_passed:
+                            print(f'All checks completed and passed for {br_name}. Commenting and closing...')
+                            pr.create_issue_comment(
+                                f'Automatic build successful. Image has been built and deployed.'
+                            )
+                        else:
+                            print(f'warning: not all checks have passed for {br_name}. Will open issue and abandon trying.')
+                            issue = open_issue(pr, pr_checks, hub_repo, module, jina_core_version)
+                            pr.create_issue_comment(
+                                f'Automatic build failed in this PR and we have opened an issue here: {issue.html_url}. '
+                                f'Closing this PR. '
+                            )
+                        pr.edit(state='closed')
+                        delete_remote_branch(br_name, expect_exists=True)
+                except Exception as e:
+                    print(f'Error handling pr {pr}. Error: {repr(e)}')
 
             # starting the checking process again on the subset
             # of PRs that had not yet completed
