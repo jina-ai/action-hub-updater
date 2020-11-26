@@ -10,7 +10,7 @@ This will automatically try to get the latest Jina release, on a regular schedul
 
 - Install this GH Action on your hub-type repo
 
-A *hub-type repo* is a repository structured like the Jina AI hub repo [here]([link](https://github.com/jina-ai/jina-hub))
+A *hub-type repo* is a repository structured, like the Jina AI hub repo [here](https://github.com/jina-ai/jina-hub).
 
 - Configure it with the required environment variables and settings:
 
