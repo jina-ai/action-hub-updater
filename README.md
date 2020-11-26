@@ -67,3 +67,7 @@ See the **README** of Hub Builder for more info, [here](https://github.com/jina-
 
 This will trigger a build, test, and (possibly) push of the module that's been affected by a given PR. The PRs are open in draft mode and closed at the end of the process.
 
+## NOTES
+
+- Modules for which there is an open issue will be ignored (with the name `fix module ModuleName`). This applies to newer versions of Jina releases. You will need to fix older versions, close the issue, and then there can be a new attempt on a **new** version of Jina. 
+- Do **NOT** permanently delete the PRs. They are used in order to track which versions of Jina have been tested on which modules. (In fact, by default, GitHub doesn't allow you, due to the principle of "transparency of work").
