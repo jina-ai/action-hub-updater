@@ -69,5 +69,7 @@ This will trigger a build, test, and (possibly) push of the module that's been a
 
 ## NOTES
 
+- The PR name structure is `chore: testing/building ModuleName (module.version.minor) on new jina core: jina.version.minor` Ex. `chore: testing/building RougeEvaluator (0.0.1) on new jina core: 0.8.1`
+- The branch name structure is `fix module ModuleName`
 - Modules for which there is an open issue will be ignored (with the name `fix module ModuleName`). This applies to newer versions of Jina releases. You will need to fix older versions, close the issue, and then there can be a new attempt on a **new** version of Jina. 
 - Do **NOT** permanently delete the PRs. They are used in order to track which versions of Jina have been tested on which modules. (In fact, by default, GitHub doesn't allow you, due to the principle of "transparency of work").
