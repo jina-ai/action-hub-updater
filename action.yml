@@ -12,6 +12,10 @@ inputs:
   MODULES_REPO:
     description: 'The repo name (e.g. `jina-ai/jina-hub`)'
     required: true
+  COMPARISON_LEVEL:
+    description: 'Level on which to compare previous Jina core releases when checking for new releases ("major","minor","patch")'
+    required: true
+    default: 'minor'
 runs:
   using: 'docker'
   image: 'Dockerfile'
@@ -19,6 +23,7 @@ runs:
     - ${{ inputs.GITHUB_TOKEN }}
     - ${{ inputs.TAG_IN_ISSUES }}
     - ${{ inputs.MODULES_REPO }}
+    - ${{ inputs.COMPARISON_LEVEL }}
 branding:
   icon: 'clock'
   color: 'red'

@@ -13,6 +13,7 @@ import git
 import requests
 import sys
 import time
+import semver
 from github import Github, Repository
 from github.Issue import Issue
 from github.PullRequest import PullRequest
@@ -20,15 +21,27 @@ from ruamel.yaml import YAML
 
 WAIT_BETWEEN_PR_CHECKS = 5 * 60
 FIX_MODULE_TEMPLATE = 'fix module '
+COMPARISON_TYPES = ["major", "minor", "patch"]
+
 TAG_IN_ISSUES = os.environ.get('TAG_IN_ISSUES', '')
 MODULES_REPO = os.environ.get('MODULES_REPO')
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
+COMPARISON_LEVEL = os.environ['COMPARISON_LEVEL']
+
 if MODULES_REPO is None:
     print(f'Error: MODULES_REPO needs to be set. Exiting...')
     sys.exit(1)
 
 if GITHUB_TOKEN is None:
     print(f'Error: GITHUB_TOKEN needs to be set. Exiting...')
+    sys.exit(1)
+
+if COMPARISON_LEVEL is None:
+    print(f'Error: COMPARISON_LEVEL needs to be set. Exiting...')
+    sys.exit(1)
+
+if COMPARISON_LEVEL not in COMPARISON_TYPES:
+    print(f'Error: COMPARISON_LEVEL needs to be one of {COMPARISON_TYPES}')
     sys.exit(1)
 
 GITHUB_API_HEADERS = {
@@ -43,14 +56,13 @@ yaml = YAML()
 
 
 def get_pr_from_gh(pr_name, all_prs):
-    """try to obtain existing open PR with name in GH
-    NOTE: raises if more than 1 found"""
+    """try to obtain existing open PR with name in GH"""
     prs = [
         pr for pr in all_prs
-        if pr.title == pr_name
+        if pr_name in pr.title
     ]
     if len(prs) > 1:
-        print(f'Warning: Too many PRs matched branch {pr_name}: {[p.html_url for p in prs]}')
+        print(f'Warning: Too many PRs matched query "{pr_name}": {[p.html_url for p in prs]}. Returning first.')
         return prs[0]
     elif len(prs) == 1:
         pr = prs[0]
@@ -79,6 +91,12 @@ def create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_rep
     # means this module version + jina version has been tested before
     # NOTE: DO NOT MODIFY THIS AS IT'S NEEDED FOR SEARCHING ON GITHUB
     pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {jina_core_version}'
+    if COMPARISON_LEVEL == 'major':
+        version = semver.parse(jina_core_version)
+        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.'
+    elif COMPARISON_LEVEL == 'minor':
+        version = semver.parse(jina_core_version)
+        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.{version["minor"]}.'
     pr: PullRequest = get_pr_from_gh(pr_name, all_prs)
     if pr:
         print(
