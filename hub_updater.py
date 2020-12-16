@@ -27,6 +27,14 @@ TAG_IN_ISSUES = os.environ.get('TAG_IN_ISSUES', '')
 MODULES_REPO = os.environ.get('MODULES_REPO')
 GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
 COMPARISON_LEVEL = os.environ['COMPARISON_LEVEL']
+TEST_AGAIN = os.environ['TEST_AGAIN'] or None
+if TEST_AGAIN == 'true':
+    TEST_AGAIN = True
+elif TEST_AGAIN == 'false':
+    TEST_AGAIN = False
+else:
+    print(f'Error: TEST_AGAIN needs to be set. Exiting...')
+    sys.exit(1)
 
 if MODULES_REPO is None:
     print(f'Error: MODULES_REPO needs to be set. Exiting...')
@@ -74,8 +82,8 @@ def get_pr_from_gh(pr_name, all_prs):
 
 
 def create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs) -> Optional[PullRequest]:
-    """for each module with manifest.yml attempts to open a PR for testing specific jina version
-    returns None (if no need to open new PR), old PR (if found and 'open'), new PR (if versions haven't been tested before)
+    """for each module with manifest.yml attempts to open a PR for testing specific jina version returns None (if no
+    need to open new PR), old PR (if found and 'open'), new PR (if versions haven't been tested before)
     """
     # noinspection PyTypeChecker
     pr = None
@@ -213,7 +221,8 @@ See {pr.html_url} for more info. {TAG_IN_ISSUES}
 
 
 def delete_remote_branch(br_name, expect_exists=True):
-    req = requests.delete(f'https://api.github.com/repos/{MODULES_REPO}/git/refs/heads/{br_name}', headers=GITHUB_API_HEADERS)
+    req = requests.delete(f'https://api.github.com/repos/{MODULES_REPO}/git/refs/heads/{br_name}',
+                          headers=GITHUB_API_HEADERS)
     if req.status_code == 204:
         if expect_exists:
             print(f'branch {br_name} deleted')
@@ -221,6 +230,22 @@ def delete_remote_branch(br_name, expect_exists=True):
             print(f'Warning: {br_name} existed and was deleted')
     elif expect_exists:
         print(f'WARNING: Output from attempting to delete branch. code {req.status_code}, json: {req.json()}')
+    return
+
+
+def close_related_issue(pr, hub_repo, module):
+    issue_name = f'{FIX_MODULE_TEMPLATE}{module}'
+    existing_issues_for_pr: List[Issue] = [
+        i for i in list(hub_repo.get_issues(state='open'))
+        if i.title == issue_name
+    ]
+    if len(existing_issues_for_pr) > 0:
+        print(f'Found existing issue: {existing_issues_for_pr}')
+        if len(existing_issues_for_pr) > 1:
+            print(f'Warning: Found too many matching issues. Will close them all.')
+        for i in existing_issues_for_pr:
+            i.create_comment(f'Closing issue as build succeeded on PR {pr.html_url}')
+            i.edit(state='closed')
     return
 
 
@@ -233,6 +258,7 @@ def handle_prs(prs_modules: List[Tuple[PullRequest, str]], hub_repo, jina_core_v
     if len(prs_modules) == 0:
         return
 
+    # noinspection PyBroadException
     try:
         # allow for checks to be initiated. It's not instantaneous
         print(f'waiting for 2 mins. before continuing...')
@@ -259,11 +285,17 @@ def handle_prs(prs_modules: List[Tuple[PullRequest, str]], hub_repo, jina_core_v
                             pr.create_issue_comment(
                                 f'Automatic build successful. Image has been built and deployed.'
                             )
+                            # close any open issues related to this module using the template
+                            close_related_issue(pr, hub_repo, module)
                         else:
-                            print(f'warning: not all checks have passed for {br_name}. Will open issue and abandon trying.')
+
+                            print(
+                                f'warning: not all checks have passed for {br_name}. '
+                                f'Will open issue and abandon trying.')
                             issue = open_issue(pr, pr_checks, hub_repo, module, jina_core_version)
                             pr.create_issue_comment(
-                                f'Automatic build failed in this PR and we have opened an issue here: {issue.html_url}. '
+                                f'Automatic build failed in this PR and we '
+                                f'have opened an issue here: {issue.html_url}. '
                                 f'Closing this PR. '
                             )
                         pr.edit(state='closed')
@@ -329,12 +361,12 @@ def main():
     all_prs = list(gh_hub_repo.get_pulls(state='all'))
     for fpath in modules:
         module = fpath.split('/')[-2]
-        if module not in to_be_fixed:
+        if not TEST_AGAIN and module in to_be_fixed:
+            print(f'skipping {module} as there is an open issue for it...')
+        else:
             pr = create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs)
             if pr:
                 prs.append((pr, module))
-        else:
-            print(f'skipping {module} as there is an open issue for it...')
 
     handle_prs(prs, gh_hub_repo, jina_core_version)
 
