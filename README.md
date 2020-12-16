@@ -38,6 +38,8 @@ jobs:
 
 ```
 
+There are other configuration options available. Check [action.yml](./action.yml).
+
 This will periodically (at midnight) check whether there is a new Jina release that you haven't tested your modules against yet. It will open draft PRs in the repo, that will trigger the Hub Builder Action (see below). The PRs will trigger the build, test, deployment. If the process fails, an issue will be opened in the repo and the user will be tagged. If all is OK, nothing to do: your new image will be pushed to your Dockerhub, using the naming convention `folder.subfolder.modulename:{module version}-{jina version}`. Ex. `pod.crafter.dummyhubexecutor:0.1.0-0.8.1`.
 
 - Install the [Jina Hub Builder GH Action](https://github.com/jina-ai/action-hub-builder) on the same repo.
