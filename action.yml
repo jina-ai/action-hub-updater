@@ -16,6 +16,10 @@ inputs:
     description: 'Level on which to compare previous Jina core releases when checking for new releases ("major","minor","patch")'
     required: true
     default: 'minor'
+  TEST_AGAIN:
+    description: 'Test the module again when an issue is open'
+    required: false
+    default: 'true'
 runs:
   using: 'docker'
   image: 'Dockerfile'
@@ -24,6 +28,7 @@ runs:
     - ${{ inputs.TAG_IN_ISSUES }}
     - ${{ inputs.MODULES_REPO }}
     - ${{ inputs.COMPARISON_LEVEL }}
+    - ${{ inputs.TEST_AGAIN }}
 branding:
   icon: 'clock'
   color: 'red'

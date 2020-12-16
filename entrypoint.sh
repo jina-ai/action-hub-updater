@@ -7,10 +7,12 @@ export GITHUB_TOKEN=$1
 export TAG_IN_ISSUES=$2
 export MODULES_REPO=$3
 export COMPARISON_LEVEL=$4
+export TEST_AGAIN=$5
 
 echo 'TAG_IN_ISSUES = ' $TAG_IN_ISSUES
 echo 'MODULES_REPO = ' $MODULES_REPO
 echo 'COMPARISON_LEVEL = ', $COMPARISON_LEVEL
+echo 'TEST_AGAIN = ', $TEST_AGAIN
 
 apt-get update -y
 apt-get install python3.7 git python3-distutils python3-pip python3-setuptools -y
