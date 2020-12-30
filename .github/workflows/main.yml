@@ -9,23 +9,23 @@ on:
     branches: [ master ]
 
 jobs:
-  test_hubbuilder:
+  test_hubupdater:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Hub builder step (no push)
-        id: hubbuild1  # later we can refer to this step
+      - name: Hub updater step (no push)
+        id: hubupdate1  # later we can refer to this step
         uses: ./ # Uses an action in the root directory
         continue-on-error: true
       - name: Get the output
         run: |
           rc=0
-          [[ "${{ steps.hubbuild1.outputs.success_targets }}" == ".github/workflows/tests/ImageReader/" ]] || rc=1
-          [[ "${{ steps.hubbuild1.outputs.failed_targets }}" == ".github/workflows/tests/EmptyExecutor/" ]] || rc=1
+          [[ "${{ steps.hubupdate1.outputs.success_targets }}" == ".github/workflows/tests/ImageReader/" ]] || rc=1
+          [[ "${{ steps.hubupdate1.outputs.failed_targets }}" == ".github/workflows/tests/EmptyExecutor/" ]] || rc=1
           exit $rc
-      - name: Hub builder step (with push)
-        id: hubbuild2  # later we can refer to this step
+      - name: Hub updater step (with push)
+        id: hubupdate2  # later we can refer to this step
         uses: ./ # Uses an action in the root directory
         continue-on-error: true
         with:
@@ -35,6 +35,6 @@ jobs:
       - name: Get the output
         run: |
           rc=0
-          [[ "${{ steps.hubbuild2.outputs.success_targets }}" == ".github/workflows/tests/ImageReader/" ]] || rc=1
-          [[ "${{ steps.hubbuild2.outputs.failed_targets }}" == ".github/workflows/tests/EmptyExecutor/" ]] || rc=1
+          [[ "${{ steps.hubupdate2.outputs.success_targets }}" == ".github/workflows/tests/ImageReader/" ]] || rc=1
+          [[ "${{ steps.hubupdate2.outputs.failed_targets }}" == ".github/workflows/tests/EmptyExecutor/" ]] || rc=1
           exit $rc
