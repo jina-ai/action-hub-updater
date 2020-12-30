@@ -8,6 +8,7 @@ import glob
 import os
 import traceback
 from typing import List, Optional, Tuple, Dict
+import pkg_resources
 
 import git
 import requests
@@ -81,7 +82,7 @@ def get_pr_from_gh(pr_name, all_prs):
         return None
 
 
-def create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs) -> Optional[PullRequest]:
+def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs) -> Optional[PullRequest]:
     """for each module with manifest.yml attempts to open a PR for testing specific jina version returns None (if no
     need to open new PR), old PR (if found and 'open'), new PR (if versions haven't been tested before)
     """
@@ -90,7 +91,7 @@ def create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_rep
     timestamp = time.time()
     print(f'handling {module}...')
     module_version = None
-    with open(fpath) as fp:
+    with open(manifest_path) as fp:
         info = yaml.load(fp)
         module_version = info['version']
         # in order to trigger a PR we make a 'dummy' change to the timestamp
@@ -118,8 +119,24 @@ def create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_rep
         else:
             return None
 
-    with open(fpath, 'w') as fp:
+    with open(manifest_path, 'w') as fp:
         yaml.dump(info, fp)
+
+    if os.path.exists(requirements_path):
+        new_requirements = []
+        update = False
+        with open(requirements_path, 'r') as fp:
+            requirements = pkg_resources.parse_requirements(fp)
+            for req in requirements:
+                if 'jina' in str(req):
+                    update = True
+                    new_requirements.append(f'jina=={jina_core_version}')
+                else:
+                    new_requirements.append(str(req))
+
+        if update:
+            with open(requirements_path, 'w') as fp:
+                fp.write('\n'.join(new_requirements))
 
     br_name = ''
     try:
@@ -359,12 +376,13 @@ def main():
 
     # traverse list of modules in jina-hub
     all_prs = list(gh_hub_repo.get_pulls(state='all'))
-    for fpath in modules:
-        module = fpath.split('/')[-2]
+    for manifest_path in modules:
+        module = manifest_path.split('/')[-2]
+        requirements_path = os.path.join(os.path.dirname(manifest_path), 'requirements.txt')
         if not TEST_AGAIN and module in to_be_fixed:
             print(f'skipping {module} as there is an open issue for it...')
         else:
-            pr = create_pr(fpath, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs)
+            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs)
             if pr:
                 prs.append((pr, module))
 
