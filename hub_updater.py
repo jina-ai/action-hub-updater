@@ -60,6 +60,7 @@ GITHUB_API_HEADERS = {
 
 # this one has PR push access
 g = Github(GITHUB_TOKEN)
+print(f'rate limit status: {g.get_rate_limit()}')
 
 yaml = YAML()
 
@@ -283,6 +284,7 @@ def handle_prs(prs_modules: List[Tuple[PullRequest, str]], hub_repo, jina_core_v
         new_prs = []
         while len(prs_modules) > 0:
             for i, pr_module in enumerate(prs_modules):
+                print(f'rate limit status: {g.get_rate_limit()}')
                 pr = None
                 try:
                     pr = pr_module[0]
@@ -377,6 +379,7 @@ def main():
     # traverse list of modules in jina-hub
     all_prs = list(gh_hub_repo.get_pulls(state='all'))
     for manifest_path in modules:
+        print(f'rate limit status: {g.get_rate_limit()}')
         module = manifest_path.split('/')[-2]
         requirements_path = os.path.join(os.path.dirname(manifest_path), 'requirements.txt')
         if not TEST_AGAIN and module in to_be_fixed:
