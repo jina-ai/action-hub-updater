@@ -15,7 +15,7 @@ import requests
 import sys
 import time
 import semver
-from github import Github, Repository
+from github import Github, Repository, GithubException
 from github.Issue import Issue
 from github.PullRequest import PullRequest
 from ruamel.yaml import YAML
@@ -83,7 +83,33 @@ def get_pr_from_gh(pr_name, all_prs):
         return None
 
 
-def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs) -> Optional[PullRequest]:
+def wrap_retry(func, param):
+    retry = True
+    time_wait = 0
+    while retry:
+        try:
+            time.sleep(time_wait)
+            return_obj = func(**param)
+            return return_obj
+        except GithubException as e:
+            if e.data \
+                    and isinstance(e.data, dict) \
+                    and 'message' in e.data.keys() \
+                    and 'Please retry your request again later' in e.data.get('message'):
+                print(f'Warning: Caught Github abuse detection mechanism exception')
+                retry = 'Retry-After' in return_obj.raw_headers.keys()
+                if retry:
+                    time_wait = int(return_obj.raw_headers['Retry-After'])
+                    print(f'"Retry-After" found in headers. Will wait {time_wait} seconds...')
+                else:
+                    print(f'Warning: "Retry-After" not found in headers. Raising...')
+                    raise e
+            else:
+                raise e
+
+
+def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo,
+              all_prs) -> Optional[PullRequest]:
     """for each module with manifest.yml attempts to open a PR for testing specific jina version returns None (if no
     need to open new PR), old PR (if found and 'open'), new PR (if versions haven't been tested before)
     """
@@ -160,13 +186,13 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
         body_string = f'Due to the release of jina core v{jina_core_version}, this draft PR is created in order to ' \
                       f'trigger an automatic build & push of the module '
 
-        pr = gh_hub_repo.create_pull(
+        pr = wrap_retry(gh_hub_repo.create_pull, dict(
             title=pr_name,
             body=body_string,
             head=br_name,
             base='master',
             draft=True
-        )
+        ))
     except Exception:
         raise
     finally:
@@ -385,7 +411,8 @@ def main():
         if not TEST_AGAIN and module in to_be_fixed:
             print(f'skipping {module} as there is an open issue for it...')
         else:
-            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs)
+            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin,
+                           gh_hub_repo, all_prs)
             if pr:
                 prs.append((pr, module))
 
