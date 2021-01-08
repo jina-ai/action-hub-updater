@@ -8,6 +8,8 @@ import glob
 import os
 import traceback
 from typing import List, Optional, Tuple, Dict
+
+import github
 import pkg_resources
 
 import git
@@ -29,12 +31,22 @@ MODULES_REPO = os.environ.get('MODULES_REPO')
 GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
 COMPARISON_LEVEL = os.environ['COMPARISON_LEVEL']
 TEST_AGAIN = os.environ['TEST_AGAIN'] or None
+FORCE_RECHECK_PR = os.environ['FORCE_RECHECK_PR'] or None
+
 if TEST_AGAIN == 'true':
     TEST_AGAIN = True
 elif TEST_AGAIN == 'false':
     TEST_AGAIN = False
 else:
     print(f'Error: TEST_AGAIN needs to be set. Exiting...')
+    sys.exit(1)
+
+if FORCE_RECHECK_PR == 'true':
+    FORCE_RECHECK_PR = True
+elif FORCE_RECHECK_PR == 'false':
+    FORCE_RECHECK_PR = False
+else:
+    print(f'Error: FORCE_RECHECK_PR needs to be set. Exiting...')
     sys.exit(1)
 
 if MODULES_REPO is None:
@@ -109,16 +121,22 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
         pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.{version["minor"]}.'
     pr: PullRequest = get_pr_from_gh(pr_name, all_prs)
     if pr:
-        print(
-            f'Warning: module {module} has already been tested on {module_version} with jina {jina_core_version}. '
-            f'Skipping...')
-        if pr.state == 'open':
-            # something must've stopped us from closing it
-            # make sure we close it
-            print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
-            return pr
+        if FORCE_RECHECK_PR:
+            print(f'Found existing PR for version: {pr.html_url}. Will rename as [old] and try again...')
+            pr.edit(
+                title=f'[old] {pr.title}'
+            )
         else:
-            return None
+            print(
+                f'Warning: module {module} has already been tested on {module_version} with jina {jina_core_version}. '
+                f'Skipping...')
+            if pr.state == 'open':
+                # something must've stopped us from closing it
+                # make sure we close it
+                print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
+                return pr
+            else:
+                return None
 
     with open(manifest_path, 'w') as fp:
         yaml.dump(info, fp)
@@ -167,11 +185,14 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
             base='master',
             draft=True
         )
-    except Exception:
-        raise
-    except GithubException as e:
+    except github.GithubException.GithubException as e:
+        print('caught GH exception')
         print(f'Error: {repr(e), type(e), e.data.get("message")}')
         print(f'Retry limit reached? {g.get_rate_limit()}')
+    except Exception as e:
+        print(f'Error: {repr(e), type(e), e.data.get("message")}')
+        print(f'Retry limit reached? {g.get_rate_limit()}')
+        raise e
 
     finally:
         hub_repo.git.checkout('master')

@@ -20,9 +20,13 @@ inputs:
     required: true
     default: 'minor'
   TEST_AGAIN:
-    description: 'Test the module again when an issue is open'
+    description: "Test the module again when an issue is open ('true'/'false')"
     required: false
     default: 'true'
+  FORCE_RECHECK_PR:
+    description: "Test the module again on the same Jina version ('true'/'false')"
+    required: false
+    default: 'false'
 runs:
   using: 'docker'
   image: 'Dockerfile'
@@ -32,6 +36,7 @@ runs:
     - ${{ inputs.MODULES_REPO }}
     - ${{ inputs.COMPARISON_LEVEL }}
     - ${{ inputs.TEST_AGAIN }}
+    - ${{ inputs.FORCE_RECHECK_PR }}
 branding:
   icon: 'clock'
   color: 'red'
