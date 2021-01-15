@@ -185,7 +185,7 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
             base='master',
             draft=True
         )
-    except github.GithubException.GithubException as e:
+    except github.GithubException as e:
         print('caught GH exception')
         print(f'Error: {repr(e), type(e), e.data.get("message")}')
         print(f'Retry limit reached? {g.get_rate_limit()}')
