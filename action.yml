@@ -20,13 +20,13 @@ inputs:
     required: true
     default: 'minor'
   TEST_AGAIN:
-    description: "Test the module again when an issue is open ('true'/'false')"
+    description: 'Test the module again when an issue is open ("true"/"false")'
     required: false
     default: 'true'
   FORCE_RECHECK_PR:
-    description: "Test the module again on the same Jina version ('true'/'false')"
+    description: 'Test the module again on the same Jina version ("true"/"false")'
     required: false
-    default: 'false'
+    default: 'true'
 runs:
   using: 'docker'
   image: 'Dockerfile'

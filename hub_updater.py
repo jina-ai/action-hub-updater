@@ -6,23 +6,23 @@ Then attempts to automatically merge the PRs
 """
 import glob
 import os
+import sys
+import time
 import traceback
 from typing import List, Optional, Tuple, Dict
 
+import git
 import github
 import pkg_resources
-
-import git
 import requests
-import sys
-import time
 import semver
-from github import Github, Repository, GithubException
+from github import Github, Repository
 from github.Issue import Issue
 from github.PullRequest import PullRequest
 from ruamel.yaml import YAML
 
 WAIT_BETWEEN_PR_CHECKS = 5 * 60
+TIME_WAIT_PR_CREATE = 30
 FIX_MODULE_TEMPLATE = 'fix module '
 COMPARISON_TYPES = ["major", "minor", "patch"]
 
@@ -30,24 +30,11 @@ TAG_IN_ISSUES = os.environ.get('TAG_IN_ISSUES', '')
 MODULES_REPO = os.environ.get('MODULES_REPO')
 GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
 COMPARISON_LEVEL = os.environ['COMPARISON_LEVEL']
-TEST_AGAIN = os.environ['TEST_AGAIN'] or None
-FORCE_RECHECK_PR = os.environ['FORCE_RECHECK_PR'] or None
+TEST_AGAIN = os.getenv('TEST_AGAIN').lower() == 'true'
+FORCE_RECHECK_PR = os.getenv('FORCE_RECHECK_PR').lower() == 'true'
 
-if TEST_AGAIN == 'true':
-    TEST_AGAIN = True
-elif TEST_AGAIN == 'false':
-    TEST_AGAIN = False
-else:
-    print(f'Error: TEST_AGAIN needs to be set. Exiting...')
-    sys.exit(1)
-
-if FORCE_RECHECK_PR == 'true':
-    FORCE_RECHECK_PR = True
-elif FORCE_RECHECK_PR == 'false':
-    FORCE_RECHECK_PR = False
-else:
-    print(f'Error: FORCE_RECHECK_PR needs to be set. Exiting...')
-    sys.exit(1)
+print(f'TEST_AGAIN = {TEST_AGAIN}')
+print(f'FORCE_RECHECK_PR = {FORCE_RECHECK_PR}')
 
 if MODULES_REPO is None:
     print(f'Error: MODULES_REPO needs to be set. Exiting...')
@@ -95,7 +82,8 @@ def get_pr_from_gh(pr_name, all_prs):
         return None
 
 
-def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs) -> Optional[PullRequest]:
+def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo,
+              all_prs) -> Optional[PullRequest]:
     """for each module with manifest.yml attempts to open a PR for testing specific jina version returns None (if no
     need to open new PR), old PR (if found and 'open'), new PR (if versions haven't been tested before)
     """
@@ -410,7 +398,10 @@ def main():
         if not TEST_AGAIN and module in to_be_fixed:
             print(f'skipping {module} as there is an open issue for it...')
         else:
-            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs)
+            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin,
+                           gh_hub_repo, all_prs)
+            print(f'Waiting {TIME_WAIT_PR_CREATE} secs. to avoid triggering abuse flagging system...')
+            time.sleep(TIME_WAIT_PR_CREATE)
             if pr:
                 prs.append((pr, module))
 
