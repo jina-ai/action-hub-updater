@@ -100,13 +100,8 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
 
     # means this module version + jina version has been tested before
     # NOTE: DO NOT MODIFY THIS AS IT'S NEEDED FOR SEARCHING ON GITHUB
-    pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {jina_core_version}'
-    if COMPARISON_LEVEL == 'major':
-        version = semver.parse(jina_core_version)
-        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.'
-    elif COMPARISON_LEVEL == 'minor':
-        version = semver.parse(jina_core_version)
-        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.{version["minor"]}.'
+    pr_name = build_pr_name(jina_core_version, module, module_version)
+
     pr: PullRequest = get_pr_from_gh(pr_name, all_prs)
     if pr:
         if FORCE_RECHECK_PR:
@@ -188,6 +183,17 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
             hub_repo.delete_head(br_name, force=True)
 
     return pr
+
+
+def build_pr_name(jina_core_version, module, module_version):
+    pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {jina_core_version}'
+    if COMPARISON_LEVEL == 'major':
+        version = semver.parse(jina_core_version)
+        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.'
+    elif COMPARISON_LEVEL == 'minor':
+        version = semver.parse(jina_core_version)
+        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.{version["minor"]}.'
+    return pr_name
 
 
 def all_checks_passed(runs: Optional[List[Dict]]) -> Optional[bool]:
