@@ -82,6 +82,37 @@ def get_pr_from_gh(pr_name, all_prs):
         return None
 
 
+def check_pr_is_valid(pr, module, module_version, jina_core_version) -> Optional[PullRequest]:
+    """Check whether PR is open and valid to be re-checked.
+
+    Otherwise, open a new one on the new version to be tested.
+
+    Could also be that we force the re-check of a closed PR that matches the version
+
+    :param pr: the PR object
+    :param module: the directory name
+    :param module_version: version of the module
+    :param jina_core_version: the new Jina core version to check
+    :return: PR, if to be re-checked
+    """
+    if FORCE_RECHECK_PR:
+        print(f'Found existing PR for version: {pr.html_url}. Will rename as [old] and try again...')
+        pr.edit(
+            title=f'[old] {pr.title}'
+        )
+    else:
+        print(
+            f'Warning: module {module} has already been tested on {module_version} with jina {jina_core_version}. '
+            f'Skipping...')
+        if pr.state == 'open':
+            # something must've stopped us from closing it
+            # make sure we close it
+            print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
+            return pr
+        else:
+            return None
+
+
 def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo,
               all_prs) -> Optional[PullRequest]:
     """for each module with manifest.yml attempts to open a PR for testing specific jina version returns None (if no
@@ -103,23 +134,8 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
     pr_name = build_pr_name(jina_core_version, module, module_version)
 
     pr: PullRequest = get_pr_from_gh(pr_name, all_prs)
-    if pr:
-        if FORCE_RECHECK_PR:
-            print(f'Found existing PR for version: {pr.html_url}. Will rename as [old] and try again...')
-            pr.edit(
-                title=f'[old] {pr.title}'
-            )
-        else:
-            print(
-                f'Warning: module {module} has already been tested on {module_version} with jina {jina_core_version}. '
-                f'Skipping...')
-            if pr.state == 'open':
-                # something must've stopped us from closing it
-                # make sure we close it
-                print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
-                return pr
-            else:
-                return None
+    if pr and check_pr_is_valid(pr, module, module_version, jina_core_version):
+        return pr
 
     with open(manifest_path, 'w') as fp:
         yaml.dump(info, fp)
