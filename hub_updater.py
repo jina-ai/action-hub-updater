@@ -95,22 +95,20 @@ def check_pr_is_valid(pr, module, module_version, jina_core_version) -> Optional
     :param jina_core_version: the new Jina core version to check
     :return: PR, if to be re-checked
     """
+    print(f'PR found for {module} on Jina core v{jina_core_version} ({pr.html_url}) ...', )
     if FORCE_RECHECK_PR:
-        print(f'Found existing PR for version: {pr.html_url}. Will rename as [old] and try again...')
+        print('Will rename as [old] and try again...')
         pr.edit(
             title=f'[old] {pr.title}'
         )
     else:
-        print(
-            f'Warning: module {module} has already been tested on {module_version} with jina {jina_core_version}. '
-            f'Skipping...')
         if pr.state == 'open':
             # something must've stopped us from closing it
             # make sure we close it
-            print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
+            print('PR was open. Will handle now...')
             return pr
         else:
-            return None
+            print('Warning: Module has already been tested. Skipping...')
 
 
 def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo,
