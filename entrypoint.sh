@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -ex
 rc=0
@@ -8,11 +8,13 @@ export TAG_IN_ISSUES=$2
 export MODULES_REPO=$3
 export COMPARISON_LEVEL=$4
 export TEST_AGAIN=$5
+export FORCE_RECHECK_PR=$6
 
 echo 'TAG_IN_ISSUES = ' $TAG_IN_ISSUES
 echo 'MODULES_REPO = ' $MODULES_REPO
-echo 'COMPARISON_LEVEL = ', $COMPARISON_LEVEL
-echo 'TEST_AGAIN = ', $TEST_AGAIN
+echo 'COMPARISON_LEVEL = ' $COMPARISON_LEVEL
+echo 'TEST_AGAIN = ' $TEST_AGAIN
+echo 'FORCE_RECHECK_PR = ' $FORCE_RECHECK_PR
 
 apt-get update -y
 apt-get install python3.7 git python3-distutils -y

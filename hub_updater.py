@@ -6,14 +6,15 @@ Then attempts to automatically merge the PRs
 """
 import glob
 import os
-import traceback
-from typing import List, Optional, Tuple, Dict
-import pkg_resources
-
-import git
-import requests
 import sys
 import time
+import traceback
+from typing import List, Optional, Tuple, Dict
+
+import git
+import github
+import pkg_resources
+import requests
 import semver
 from github import Github, Repository
 from github.Issue import Issue
@@ -21,6 +22,7 @@ from github.PullRequest import PullRequest
 from ruamel.yaml import YAML
 
 WAIT_BETWEEN_PR_CHECKS = 5 * 60
+TIME_WAIT_PR_CREATE = 30
 FIX_MODULE_TEMPLATE = 'fix module '
 COMPARISON_TYPES = ["major", "minor", "patch"]
 
@@ -28,14 +30,11 @@ TAG_IN_ISSUES = os.environ.get('TAG_IN_ISSUES', '')
 MODULES_REPO = os.environ.get('MODULES_REPO')
 GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
 COMPARISON_LEVEL = os.environ['COMPARISON_LEVEL']
-TEST_AGAIN = os.environ['TEST_AGAIN'] or None
-if TEST_AGAIN == 'true':
-    TEST_AGAIN = True
-elif TEST_AGAIN == 'false':
-    TEST_AGAIN = False
-else:
-    print(f'Error: TEST_AGAIN needs to be set. Exiting...')
-    sys.exit(1)
+TEST_AGAIN = os.getenv('TEST_AGAIN').lower() == 'true'
+FORCE_RECHECK_PR = os.getenv('FORCE_RECHECK_PR').lower() == 'true'
+
+print(f'TEST_AGAIN = {TEST_AGAIN}')
+print(f'FORCE_RECHECK_PR = {FORCE_RECHECK_PR}')
 
 if MODULES_REPO is None:
     print(f'Error: MODULES_REPO needs to be set. Exiting...')
@@ -83,7 +82,37 @@ def get_pr_from_gh(pr_name, all_prs):
         return None
 
 
-def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs) -> Optional[PullRequest]:
+def check_pr_is_valid(pr, module, module_version, jina_core_version) -> Optional[PullRequest]:
+    """Check whether PR is open and valid to be re-checked.
+
+    Otherwise, open a new one on the new version to be tested.
+
+    Could also be that we force the re-check of a closed PR that matches the version
+
+    :param pr: the PR object
+    :param module: the directory name
+    :param module_version: version of the module
+    :param jina_core_version: the new Jina core version to check
+    :return: PR, if to be re-checked
+    """
+    print(f'PR found for {module} on Jina core v{jina_core_version} ({pr.html_url}) ...', )
+    if FORCE_RECHECK_PR:
+        print('Will rename as [old] and try again...')
+        pr.edit(
+            title=f'[old] {pr.title}'
+        )
+    else:
+        if pr.state == 'open':
+            # something must've stopped us from closing it
+            # make sure we close it
+            print('PR was open. Will handle now...')
+            return pr
+        else:
+            print('Warning: Module has already been tested. Skipping...')
+
+
+def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo,
+              all_prs) -> Optional[PullRequest]:
     """for each module with manifest.yml attempts to open a PR for testing specific jina version returns None (if no
     need to open new PR), old PR (if found and 'open'), new PR (if versions haven't been tested before)
     """
@@ -100,25 +129,11 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
 
     # means this module version + jina version has been tested before
     # NOTE: DO NOT MODIFY THIS AS IT'S NEEDED FOR SEARCHING ON GITHUB
-    pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {jina_core_version}'
-    if COMPARISON_LEVEL == 'major':
-        version = semver.parse(jina_core_version)
-        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.'
-    elif COMPARISON_LEVEL == 'minor':
-        version = semver.parse(jina_core_version)
-        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.{version["minor"]}.'
+    pr_name = build_pr_name(jina_core_version, module, module_version)
+
     pr: PullRequest = get_pr_from_gh(pr_name, all_prs)
-    if pr:
-        print(
-            f'Warning: module {module} has already been tested on {module_version} with jina {jina_core_version}. '
-            f'Skipping...')
-        if pr.state == 'open':
-            # something must've stopped us from closing it
-            # make sure we close it
-            print(f'PR found open for {module} on Jina core v{jina_core_version}. Will handle now...')
-            return pr
-        else:
-            return None
+    if pr and check_pr_is_valid(pr, module, module_version, jina_core_version):
+        return pr
 
     with open(manifest_path, 'w') as fp:
         yaml.dump(info, fp)
@@ -167,14 +182,32 @@ def create_pr(manifest_path, requirements_path, module, jina_core_version, hub_r
             base='master',
             draft=True
         )
-    except Exception:
-        raise
+    except github.GithubException as e:
+        print('caught GH exception')
+        print(f'Error: {repr(e), type(e), e.data.get("message")}')
+        print(f'Retry limit reached? {g.get_rate_limit()}')
+    except Exception as e:
+        print(f'Error: {repr(e), type(e), e.data.get("message")}')
+        print(f'Retry limit reached? {g.get_rate_limit()}')
+        raise e
+
     finally:
         hub_repo.git.checkout('master')
         if br_name:
             hub_repo.delete_head(br_name, force=True)
 
     return pr
+
+
+def build_pr_name(jina_core_version, module, module_version):
+    pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {jina_core_version}'
+    if COMPARISON_LEVEL == 'major':
+        version = semver.parse(jina_core_version)
+        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.'
+    elif COMPARISON_LEVEL == 'minor':
+        version = semver.parse(jina_core_version)
+        pr_name = f'chore: testing/building {module} ({module_version}) on new jina core: {version["major"]}.{version["minor"]}.'
+    return pr_name
 
 
 def all_checks_passed(runs: Optional[List[Dict]]) -> Optional[bool]:
@@ -385,7 +418,10 @@ def main():
         if not TEST_AGAIN and module in to_be_fixed:
             print(f'skipping {module} as there is an open issue for it...')
         else:
-            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin, gh_hub_repo, all_prs)
+            pr = create_pr(manifest_path, requirements_path, module, jina_core_version, hub_repo, hub_origin,
+                           gh_hub_repo, all_prs)
+            print(f'Waiting {TIME_WAIT_PR_CREATE} secs. to avoid triggering abuse flagging system...')
+            time.sleep(TIME_WAIT_PR_CREATE)
             if pr:
                 prs.append((pr, module))
 
